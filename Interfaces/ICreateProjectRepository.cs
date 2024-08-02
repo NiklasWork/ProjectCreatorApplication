@@ -4,7 +4,9 @@ namespace ProjectCreatorApplication.Interfaces
 {
     public interface ICreateProjectRepository
     {
-        CustomResult CreateNewProject(string? projectName);
-        CustomResult CopyProject();
+        CustomResult CreateProject(string? projectName);
+
+        CustomResult CreateZipFile();
+        //CustomResult CopyProject();
     }
 }

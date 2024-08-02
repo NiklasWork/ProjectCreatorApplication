@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ProjectCreatorApplication.Interfaces;
 using ProjectCreatorApplication.Repositorys;
+using System.IO.Compression;
 
 namespace ProjectCreatorApplication.Controllers
 {
@@ -16,9 +17,9 @@ namespace ProjectCreatorApplication.Controllers
         }
 
         [HttpPost("CreateProject")]
-        public IActionResult CreateNewProject([FromQuery] string? projectName)
+        public IActionResult CreateProject([FromQuery] string? projectName)
         {
-            var result = _cpRepo.CreateNewProject(projectName);
+            var result = _cpRepo.CreateProject(projectName);
             if (result.Success)
             {
                 return Ok(result.Message);
@@ -26,33 +27,41 @@ namespace ProjectCreatorApplication.Controllers
             return StatusCode(500, result.Message);
         }
 
-        [HttpGet("CopyProject")]
-        public IActionResult CopyProject()
-        {
-            var result = _cpRepo.CopyProject();
-            if (result.Success)
-            {
-                return Ok(result.Message);
-            }
-            return StatusCode(500, result.Message);
-        }
+        //[HttpGet("CopyProject")]
+        //public IActionResult CopyProject()
+        //{
+        //    var result = _cpRepo.CopyProject();
+        //    if (result.Success)
+        //    {
+        //        return Ok(result.Message);
+        //    }
+        //    return StatusCode(500, result.Message);
+        //}
 
-        [HttpPost("CreateAndDownloadNewProject")]
-        public IActionResult CreateAndDownloadNewProject([FromQuery] string? projectName)
+        [HttpPost("CreateAndDownloadProject")]
+        public IActionResult CreateAndDownloadProject([FromQuery] string? projectName)
         {
-            var createNewProjectResponse = _cpRepo.CreateNewProject(projectName);
+            var createNewProjectResponse = _cpRepo.CreateProject(projectName);
             if (!createNewProjectResponse.Success)
             {
                 return StatusCode(500, createNewProjectResponse.Message);
             }
+            return DownloadProject();
+        }
 
-            var copyProjectResponse = _cpRepo.CopyProject();
-            if (!copyProjectResponse.Success)
+        [HttpGet("DownloadProject")]
+        public IActionResult DownloadProject()
+        {
+            var response = _cpRepo.CreateZipFile();
+
+            if (!response.Success) 
             {
-                return StatusCode(500, copyProjectResponse.Message);
+                return StatusCode(500, response.Message);
             }
 
-            return Ok($"{createNewProjectResponse.Message}, {copyProjectResponse.Message}");
+            byte[] fileBytes = System.IO.File.ReadAllBytes(response.Message);
+
+            return File(fileBytes, "application/zip", $"{response.OptinalMessage}.zip");
         }
 
         [HttpGet("TestApi")]
