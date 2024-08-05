@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using ProjectCreatorApplication.Interfaces;
-using ProjectCreatorApplication.Repositorys;
-using System.IO.Compression;
+using ProjectCreatorApplication.Models;
+using ProjectCreatorApplication.Repository;
 
 namespace ProjectCreatorApplication.Controllers
 {
@@ -17,9 +17,9 @@ namespace ProjectCreatorApplication.Controllers
         }
 
         [HttpPost("CreateProject")]
-        public IActionResult CreateProject([FromQuery] string? projectName)
+        public IActionResult CreateProject([FromBody] CreateProjectConfig projectConfig)
         {
-            var result = _cpRepo.CreateProject(projectName);
+            var result = _cpRepo.CreateProject(projectConfig);
             if (result.Success)
             {
                 return Ok(result.Message);
@@ -27,26 +27,15 @@ namespace ProjectCreatorApplication.Controllers
             return StatusCode(500, result.Message);
         }
 
-        //[HttpGet("CopyProject")]
-        //public IActionResult CopyProject()
-        //{
-        //    var result = _cpRepo.CopyProject();
-        //    if (result.Success)
-        //    {
-        //        return Ok(result.Message);
-        //    }
-        //    return StatusCode(500, result.Message);
-        //}
-
         [HttpPost("CreateAndDownloadProject")]
-        public IActionResult CreateAndDownloadProject([FromQuery] string? projectName)
+        public IActionResult CreateAndDownloadProject([FromBody] CreateProjectConfig projectConfig)
         {
-            var createNewProjectResponse = _cpRepo.CreateProject(projectName);
-            if (!createNewProjectResponse.Success)
+            var createNewProjectResult = _cpRepo.CreateProject(projectConfig);
+            if (createNewProjectResult.Success)
             {
-                return StatusCode(500, createNewProjectResponse.Message);
+                return DownloadProject();
             }
-            return DownloadProject();
+            return StatusCode(500, createNewProjectResult.Message);
         }
 
         [HttpGet("DownloadProject")]
@@ -54,7 +43,7 @@ namespace ProjectCreatorApplication.Controllers
         {
             var response = _cpRepo.CreateZipFile();
 
-            if (!response.Success) 
+            if (!response.Success)
             {
                 return StatusCode(500, response.Message);
             }

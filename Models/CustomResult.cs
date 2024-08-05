@@ -1,4 +1,4 @@
-﻿namespace ProjectCreatorApplication.Repositorys
+﻿namespace ProjectCreatorApplication.Models
 {
     public class CustomResult
     {

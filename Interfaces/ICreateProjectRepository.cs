@@ -1,12 +1,12 @@
-﻿using ProjectCreatorApplication.Repositorys;
+﻿using ProjectCreatorApplication.Models;
+
 namespace ProjectCreatorApplication.Interfaces
 
 {
     public interface ICreateProjectRepository
     {
-        CustomResult CreateProject(string? projectName);
+        CustomResult CreateProject(CreateProjectConfig projectConfig);
 
         CustomResult CreateZipFile();
-        //CustomResult CopyProject();
     }
 }
