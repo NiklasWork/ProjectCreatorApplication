@@ -1,19 +1,19 @@
-﻿using System;
-using System.Diagnostics;
-using System.IO;
+﻿using System.Diagnostics;
 using System.IO.Compression;
-using System.Linq;
 using System.Text.RegularExpressions;
 using ProjectCreatorApplication.Interfaces;
 using ProjectCreatorApplication.Models;
 
 namespace ProjectCreatorApplication.Repository
 {
-    public class CreateProjectRepository : ICreateProjectRepository
+    public partial class CreateProjectRepository : ICreateProjectRepository
     {
+        [GeneratedRegex(@"<TargetFramework>.*</TargetFramework>", RegexOptions.IgnoreCase, "de-DE")]
+        private static partial Regex ProjectRegex();
+
         private static readonly string basePath = "/app/AutomaticCreatedProject";
         private static readonly string[] sourceArrayWorkerRuntime = ["dotnet", "node", "python", "powershell", "custom"];
-        private static readonly string[] sourceArrayAuth = ["function", "anonymous", "admin"];
+        private static readonly string[] sourceArrayAuth = ["function", "anonymous", "admin", ""];
 
         public CustomResult CreateProject(CreateProjectConfig projectConfig)
         {
@@ -62,20 +62,33 @@ namespace ProjectCreatorApplication.Repository
                     return new CustomResult(false, "Error: Invalid project directory path.", "");
                 }
 
-                var createArguments = $"new {projectConfig.Type} --output {projectDirectory}";
-                var (createExitCode, createOutput, createError) = ExecuteCommand("dotnet", createArguments);
-
-                if (createExitCode != 0)
-                {
-                    return new CustomResult(false, "Error creating project: " + createError, "");
-                }
-
                 if (!string.IsNullOrWhiteSpace(projectConfig.Framework))
                 {
                     var frameworkVersion = ExtractVersionNumber(projectConfig.Framework);
 
-                    if (frameworkVersion < 8)
+                    // Check compatibility
+                    if (frameworkVersion >= 8)
                     {
+                        // Handle newer framework version
+                        var createArguments = $"new {projectConfig.Type} --framework {projectConfig.Framework} --output {projectDirectory}";
+                        var (createExitCode, createOutput, createError) = ExecuteCommand("dotnet", createArguments);
+
+                        if (createExitCode != 0)
+                        {
+                            return new CustomResult(false, "Error creating project: " + createError, "");
+                        }
+                    }
+                    else
+                    {
+                        // Handle older framework version
+                        var createArguments = $"new {projectConfig.Type} --output {projectDirectory}";
+                        var (createExitCode, createOutput, createError) = ExecuteCommand("dotnet", createArguments);
+
+                        if (createExitCode != 0)
+                        {
+                            return new CustomResult(false, "Error creating project: " + createError, "");
+                        }
+
                         var csprojFilePath = Directory.GetFiles(projectDirectory, "*.csproj").FirstOrDefault();
                         if (csprojFilePath == null)
                         {
@@ -88,24 +101,25 @@ namespace ProjectCreatorApplication.Repository
                             return new CustomResult(false, "Error updating .csproj file: " + updateResult.Message, "");
                         }
                     }
-                    else
+                }
+                else
+                {
+                    var createArguments = $"new {projectConfig.Type} --output {projectDirectory}";
+                    var (createExitCode, createOutput, createError) = ExecuteCommand("dotnet", createArguments);
+
+                    if (createExitCode != 0)
                     {
-                        createArguments = $"new {projectConfig.Type} --framework {projectConfig.Framework} --output {projectDirectory}";
-                        var (updateExitCode, updateOutput, updateError) = ExecuteCommand("dotnet", createArguments);
-                        if (updateExitCode != 0)
-                        {
-                            return new CustomResult(false, "Error updating project with framework: " + updateError, "");
-                        }
+                        return new CustomResult(false, "Error creating project: " + createError, "");
                     }
                 }
 
-                var restoreResult = ExecuteCommand("dotnet", $"restore {projectDirectory}");
-                if (restoreResult.ExitCode != 0)
+                var (ExitCode, Output, Error) = ExecuteCommand("dotnet", $"restore {Directory.GetFiles(projectDirectory, "*.csproj").FirstOrDefault()}");
+                if (ExitCode != 0)
                 {
-                    return new CustomResult(false, "Error restoring project: " + restoreResult.Error, "");
+                    return new CustomResult(false, $"Error restoring project: {Error}, Output: {Output}", "");
                 }
 
-                return new CustomResult(true, $"Project '{projectConfig.ProjectName}' created in '{projectDirectory}'.", "");
+                return new CustomResult(true, $"Project '{projectConfig.ProjectName}' created in '{projectDirectory}'", "");
             }
             catch (Exception ex)
             {
@@ -128,12 +142,7 @@ namespace ProjectCreatorApplication.Repository
             try
             {
                 var csprojContent = File.ReadAllText(csprojFilePath);
-                var updatedContent = Regex.Replace(
-                    csprojContent,
-                    @"<TargetFramework>.*</TargetFramework>",
-                    $"<TargetFramework>{targetFramework}</TargetFramework>",
-                    RegexOptions.IgnoreCase
-                );
+                var updatedContent = ProjectRegex().Replace(csprojContent, $"<TargetFramework>{targetFramework}</TargetFramework>");
 
                 File.WriteAllText(csprojFilePath, updatedContent);
                 return new CustomResult(true, "Successfully updated .csproj file.", "");
@@ -166,7 +175,7 @@ namespace ProjectCreatorApplication.Repository
                 return new CustomResult(false, $"Invalid language for dotnet runtime: {projectConfig.Language}", "");
             }
 
-            if (!sourceArrayAuth.Contains(projectConfig.Authorization))
+            if (!(sourceArrayAuth.Contains(projectConfig.Authorization) || projectConfig.Authorization == null))
             {
                 return new CustomResult(false, $"Invalid authorization level: {projectConfig.Authorization}", "");
             }
@@ -174,7 +183,7 @@ namespace ProjectCreatorApplication.Repository
             var (funcCheckExitCode, funcCheckOutput, funcCheckError) = ExecuteCommand("which", "func");
             if (funcCheckExitCode != 0)
             {
-                return new CustomResult(false, $"Azure Functions Core Tools 'func' not found: {funcCheckError}", "");
+                return new CustomResult(false, $"Azure Functions Core Tools 'func' not found: {funcCheckError}, output: {funcCheckOutput}", "");
             }
 
             try
@@ -189,19 +198,23 @@ namespace ProjectCreatorApplication.Repository
                     }
                 }
 
-                var initResult = ExecuteCommand("func", $"init {projectConfig.ProjectName} {initArguments}", 120000);
-                if (initResult.ExitCode != 0)
+                var (ExitCode, Output, Error) = ExecuteCommand("func", $"init {projectConfig.ProjectName} {initArguments}", 120000);
+                if (ExitCode != 0)
                 {
-                    return new CustomResult(false, $"Error initializing Function App: {initResult.Error}", "");
+                    return new CustomResult(false, $"Error initializing Function App: {Error}, output: {Output}", "");
                 }
 
                 Directory.SetCurrentDirectory(projectConfig.ProjectName);
 
-                var createFunctionArguments = $"--name {projectConfig.FunctionName} --template \"{projectConfig.Template}\" --language {projectConfig.Language} --authlevel {projectConfig.Authorization}";
+                var createFunctionArguments = $"--name {projectConfig.FunctionName} --template \"{projectConfig.Template}\" --language {projectConfig.Language}";
+                if (projectConfig.Authorization != null)
+                {
+                    createFunctionArguments += $" --authlevel {projectConfig.Authorization}";
+                }
                 var createResult = ExecuteCommand("func", $"new {createFunctionArguments}", 120000);
                 if (createResult.ExitCode != 0)
                 {
-                    return new CustomResult(false, $"Error creating function: {createResult.Error}", "");
+                    return new CustomResult(false, $"Error creating function: {createResult.Error}, Output: {createResult.Output}", "");
                 }
 
                 return new CustomResult(true, $"Function '{projectConfig.FunctionName}' created in '{projectConfig.ProjectName}'.", $"Output: {createResult.Output}\nError: {createResult.Error}");
@@ -271,6 +284,7 @@ namespace ProjectCreatorApplication.Repository
                 }
 
                 Directory.Delete(projectPath, true);
+                Directory.Delete(basePath, true);
 
                 memoryStream.Position = 0;
                 var byteArray = memoryStream.ToArray();
