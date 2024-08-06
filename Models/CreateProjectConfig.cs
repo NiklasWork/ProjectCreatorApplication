@@ -3,10 +3,12 @@
     public class CreateProjectConfig
     {
         public string? Type { get; set; }
-        public string? Name { get; set; }
+        public string? ProjectName { get; set; }
+        public string? FunctionName { get; set; } = "NewFunc";
         public string? Template { get; set; } = "HTTP trigger";
-        public string? Version { get; set; }
-        public string? Authorization { get; set; } = "Function";
+        public string? Authorization { get; set; } = "function";
         public string? Framework { get; set; } = "net6.0";
+        public string? WorkerRuntime { get; set; } = "dotnet";
+        public string? Language { get; set; } = "c#";
     }
 }
