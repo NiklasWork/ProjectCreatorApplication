@@ -27,7 +27,7 @@ namespace ProjectCreatorApplication.Controllers
             return StatusCode(500, createNewProjectResult.Message);
         }
 
-        [HttpPost("CreateProject")] //Debug function
+        [HttpPost("CreateProject")]
         public IActionResult CreateProject([FromBody] CreateProjectConfig projectConfig)
         {
             var result = _cpRepo.CreateProject(projectConfig);
@@ -38,7 +38,7 @@ namespace ProjectCreatorApplication.Controllers
             return StatusCode(500, result.Message);
         }
 
-        [HttpGet("DownloadProject")] //Debug function
+        [HttpGet("DownloadProject")]
         public IActionResult DownloadProject() 
         {
             var response = _cpRepo.CreateZipFile();
@@ -56,7 +56,7 @@ namespace ProjectCreatorApplication.Controllers
             return File(response.Data, "application/zip", $"{response.OptionalMessage}.zip");;
         }
 
-        [HttpGet("TestApi")] //Debug function
+        [HttpGet("TestApi")]
         public IActionResult TestApi()
         {
             return Ok("Hello I'm here");
