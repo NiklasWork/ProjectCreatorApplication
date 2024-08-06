@@ -2,7 +2,7 @@
 {
     public class CreateProjectConfig
     {
-        public string? Type { get; set; } = "console";
+        public string? Type { get; set; }
         public string? Name { get; set; }
         public string? Template { get; set; } = "HTTP trigger";
         public string? Version { get; set; }

@@ -160,23 +160,51 @@ namespace ProjectCreatorApplication.Repository
 
         public CustomResult CreateZipFile()
         {
-            var projectPath = Directory.GetDirectories(basePath).FirstOrDefault(x => !x.EndsWith(".zip"));
-            var projectName = Path.GetFileName(projectPath);
-
-            if (projectPath == null)
+            try
             {
-                return new CustomResult(false, "", "There is no project to Download.");
+                var projectPath = Directory.GetDirectories(basePath).FirstOrDefault(x => !x.EndsWith(".zip"));
+                if (projectPath == null)
+                {
+                    return new CustomResult(false, "", "There is no project to download.");
+                }
+                var projectName = Path.GetFileName(projectPath);
+
+                using var memoryStream = new MemoryStream();
+                using (var zipArchive = new ZipArchive(memoryStream, ZipArchiveMode.Create, true))
+                {
+                    AddDirectoryToZip(zipArchive, projectPath, projectPath);
+                }
+
+                Directory.Delete(projectPath, true);
+
+                memoryStream.Position = 0;
+                var byteArray = memoryStream.ToArray();
+
+                return new CustomResult(true, "Zip file created successfully", projectName, byteArray);
+            }
+            catch (Exception ex)
+            {
+                return new CustomResult(false, $"Error creating ZIP file: {ex.Message}", null);
+            }
+        }
+
+        private static void AddDirectoryToZip(ZipArchive zipArchive, string sourceDir, string baseDir)
+        {
+            foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
+            {
+                var entryName = Path.GetRelativePath(baseDir, file);
+                var entry = zipArchive.CreateEntry(entryName);
+
+                using var entryStream = entry.Open();
+                using var fileStream = new FileStream(file, FileMode.Open, FileAccess.Read);
+                fileStream.CopyTo(entryStream);
             }
 
-            var zipFilePath = Path.Combine(basePath, $"{projectName}.zip");
-
-            if (File.Exists(zipFilePath))
+            foreach (var directory in Directory.GetDirectories(sourceDir, "*", SearchOption.AllDirectories))
             {
-                File.Delete(zipFilePath);
+                var entryName = Path.GetRelativePath(baseDir, directory) + Path.DirectorySeparatorChar;
+                zipArchive.CreateEntry(entryName);
             }
-            ZipFile.CreateFromDirectory(projectPath, zipFilePath);
-
-            return new CustomResult(true, zipFilePath, projectName);
         }
     }
 }

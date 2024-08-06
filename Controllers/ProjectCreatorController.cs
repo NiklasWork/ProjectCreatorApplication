@@ -16,17 +16,6 @@ namespace ProjectCreatorApplication.Controllers
             _cpRepo = new CreateProjectRepository();
         }
 
-        [HttpPost("CreateProject")]
-        public IActionResult CreateProject([FromBody] CreateProjectConfig projectConfig)
-        {
-            var result = _cpRepo.CreateProject(projectConfig);
-            if (result.Success)
-            {
-                return Ok(result.Message);
-            }
-            return StatusCode(500, result.Message);
-        }
-
         [HttpPost("CreateAndDownloadProject")]
         public IActionResult CreateAndDownloadProject([FromBody] CreateProjectConfig projectConfig)
         {
@@ -38,22 +27,36 @@ namespace ProjectCreatorApplication.Controllers
             return StatusCode(500, createNewProjectResult.Message);
         }
 
-        [HttpGet("DownloadProject")]
-        public IActionResult DownloadProject()
+        [HttpPost("CreateProject")] //Debug function
+        public IActionResult CreateProject([FromBody] CreateProjectConfig projectConfig)
+        {
+            var result = _cpRepo.CreateProject(projectConfig);
+            if (result.Success)
+            {
+                return Ok(result.Message);
+            }
+            return StatusCode(500, result.Message);
+        }
+
+        [HttpGet("DownloadProject")] //Debug function
+        public IActionResult DownloadProject() 
         {
             var response = _cpRepo.CreateZipFile();
 
             if (!response.Success)
             {
-                return StatusCode(500, response.Message);
+                return StatusCode(500, "Error: No Project to download. Create one first.");
+            }
+            
+            if (response.Data == null)
+            {
+                return StatusCode(500, "Error: Failed to create zip file. Date == null");
             }
 
-            byte[] fileBytes = System.IO.File.ReadAllBytes(response.Message);
-
-            return File(fileBytes, "application/zip", $"{response.OptinalMessage}.zip");
+            return File(response.Data, "application/zip", $"{response.OptionalMessage}.zip");;
         }
 
-        [HttpGet("TestApi")]
+        [HttpGet("TestApi")] //Debug function
         public IActionResult TestApi()
         {
             return Ok("Hello I'm here");
